@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MK SNIPER v47.0 - Web Trading Terminal</title>
+    <title>MK SNIPER v47.0 - Public Trading Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <style>
         body { background: #0a0e17; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .top-nav { background: #111827; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 16px 24px; }
         .terminal-card { background: rgba(26, 31, 46, 0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 24px; margin-bottom: 24px; backdrop-filter: blur(15px); }
         .signal-display { background: #111827; border: 2px solid #3b82f6; border-radius: 16px; padding: 30px; text-align: center; margin-top: 20px; }
         .action-badge { font-size: 36px; font-weight: 800; letter-spacing: 2px; }
@@ -17,25 +18,27 @@
         .action-put { color: #ff4444; text-shadow: 0 0 20px rgba(255,68,68,0.4); }
         .video-box { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; }
         .video-box iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        .admin-btn-header { background: linear-gradient(135deg, #6c5ce7, #3b82f6); border: none; color: white; font-weight: 700; padding: 8px 18px; border-radius: 10px; text-decoration: none; }
+        .admin-btn-header:hover { color: white; box-shadow: 0 0 20px rgba(108,92,231,0.4); }
     </style>
 </head>
-<body class="p-3 p-md-5">
-    <div class="container" style="max-width: 1000px;">
-        <!-- Header -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
+<body>
+    <!-- TOP NAVIGATION BAR WITH ADMIN ACCESS LINK -->
+    <header class="top-nav d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-3">
+            <div class="logo-icon bg-primary text-white p-2 rounded-3 fs-4"><i class="fas fa-crosshairs"></i></div>
             <div>
-                <h1 class="h3 fw-bold text-primary"><i class="fas fa-crosshairs"></i> MK SNIPER ENGINE</h1>
-                <span class="badge bg-primary">v47.0 Public Web Terminal</span>
-            </div>
-            <div>
-                {% if user and user.has_active_subscription() %}
-                <span class="badge bg-success p-2"><i class="fas fa-check-circle"></i> ACTIVE: {{ user.plan | upper }}</span>
-                {% else %}
-                <span class="badge bg-danger p-2"><i class="fas fa-lock"></i> ACCOUNT LOCKED</span>
-                {% endif %}
+                <h1 class="h5 mb-0 fw-bold">MK SNIPER ENGINE</h1>
+                <span class="text-muted small font-monospace">v47.0 Public Trading Terminal</span>
             </div>
         </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="https://t.me/{{ admin_username.replace('@', '') }}" target="_blank" class="btn btn-outline-info btn-sm fw-bold"><i class="fab fa-telegram"></i> Telegram Bot</a>
+            <a href="{{ url_for('dash.login') }}" class="admin-btn-header btn-sm"><i class="fas fa-shield-halved"></i> 👑 ADMIN CONTROL PANEL</a>
+        </div>
+    </header>
 
+    <div class="container py-4" style="max-width: 1000px;">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for category, message in messages %}
@@ -47,10 +50,40 @@
         {% endif %}
         {% endwith %}
 
-        <!-- LOGIN / REDEEM KEY BAR -->
+        <!-- LOCKED USER PAYMENT & ACCESS KEY BAR -->
         {% if not user or not user.has_active_subscription() %}
         <div class="terminal-card border-warning">
-            <h4 class="text-warning fw-bold mb-3"><i class="fas fa-key"></i> Unlock Web Terminal</h4>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="text-warning fw-bold mb-0"><i class="fas fa-lock"></i> Account Locked - Purchase Required</h4>
+                <a href="https://t.me/{{ admin_username.replace('@', '') }}" target="_blank" class="btn btn-warning btn-sm fw-bold"><i class="fab fa-telegram"></i> Contact Admin On Telegram</a>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="bg-dark p-3 rounded border border-secondary text-center">
+                        <div class="text-muted small">1 Week Access</div>
+                        <div class="h3 fw-bold text-success">$20</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="bg-dark p-3 rounded border border-primary text-center">
+                        <div class="text-muted small">1 Month VIP</div>
+                        <div class="h3 fw-bold text-primary">$100</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="bg-dark p-3 rounded border border-purple text-center">
+                        <div class="text-muted small">Lifetime License</div>
+                        <div class="h3 fw-bold text-info">$150</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-dark p-3 rounded mb-4 font-monospace border border-secondary">
+                <div class="text-muted small">USDT (TRC20 Wallet Address):</div>
+                <code class="fs-6 text-warning">{{ usdt_address }}</code>
+            </div>
+
             <form action="{{ url_for('dash.web_login') }}" method="POST" class="row g-3">
                 <div class="col-md-5">
                     <input type="text" name="telegram_id" class="form-control bg-dark text-white" placeholder="Enter Telegram ID..." required>
@@ -59,15 +92,22 @@
                     <input type="text" name="key" class="form-control bg-dark text-white" placeholder="Enter Access Key (e.g. MK-WK-8921)...">
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-warning w-100 fw-bold">Unlock</button>
+                    <button type="submit" class="btn btn-warning w-100 fw-bold">Redeem Key</button>
                 </div>
             </form>
         </div>
+        {% else %}
+        <div class="alert alert-success d-flex justify-content-between align-items-center p-3 rounded-4 mb-4">
+            <div>
+                <i class="fas fa-check-circle me-2"></i> <strong>ACTIVE SUBSCRIBER:</strong> Welcome ID <code>{{ user.telegram_id }}</code> ({{ user.plan | upper }} Plan)
+            </div>
+            <span class="badge bg-success font-monospace">UNLOCKED</span>
+        </div>
         {% endif %}
 
-        <!-- LIVE SIGNAL GENERATOR -->
+        <!-- LIVE SIGNAL GENERATOR ENGINE -->
         <div class="terminal-card">
-            <h4 class="fw-bold mb-3"><i class="fas fa-bolt text-primary"></i> Live Sniper Signal Generator</h4>
+            <h4 class="fw-bold mb-3"><i class="fas fa-crosshairs text-primary"></i> Live Signal Generator</h4>
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <label class="form-label text-muted">Select Asset Pair:</label>
@@ -90,13 +130,12 @@
                     </select>
                 </div>
             </div>
-            <button onclick="generateSignal()" class="btn btn-primary btn-lg w-100 fw-bold py-3"><i class="fas fa-crosshairs"></i> GENERATE SNIPER SIGNAL</button>
+            <button onclick="generateSignal()" class="btn btn-primary btn-lg w-100 fw-bold py-3"><i class="fas fa-crosshairs me-2"></i> GENERATE SNIPER SIGNAL</button>
 
-            <!-- SIGNAL OUTPUT DISPLAY -->
             <div id="signalOutput" class="signal-display" style="display: none;">
                 <div id="scanningState">
                     <i class="fas fa-spinner fa-spin fa-2x text-primary mb-2"></i>
-                    <p class="mb-0 text-muted">Analyzing Wave Confluences & Volume Regimes...</p>
+                    <p class="mb-0 text-muted">Scanning Wave Confluences & Volume Regimes...</p>
                 </div>
                 <div id="resultState" style="display: none;">
                     <div id="actionBadge" class="action-badge mb-2">CALL ⬆️</div>
@@ -105,15 +144,15 @@
                     <div class="text-start bg-dark p-3 rounded border border-secondary font-monospace small">
                         <div>⏰ Entry Time: <span id="resTime">--:--:--</span></div>
                         <div>🛡 Support MG1: Active</div>
-                        <div>⚡ Regime: Dynamic Momentum Overlay</div>
+                        <div>⚡ Regime: Dynamic Wave Confluence</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- PLAYABLE TRAINING VIDEOS -->
+        <!-- EMBEDDABLE TRAINING VIDEOS SECTION -->
         <div id="videos" class="terminal-card">
-            <h4 class="fw-bold mb-3"><i class="fas fa-play-circle text-danger"></i> Learning & Strategy Video Tutorials</h4>
+            <h4 class="fw-bold mb-3"><i class="fas fa-play-circle text-danger"></i> Learn How to Trade (Video Tutorials)</h4>
             <div class="row g-4">
                 {% for v in videos %}
                 <div class="col-md-6">
@@ -122,7 +161,7 @@
                             <iframe src="{{ v.embed_url }}" allowfullscreen></iframe>
                         </div>
                         <h5 class="fw-bold text-white">{{ v.title }}</h5>
-                        <p class="text-muted small">{{ v.description }}</p>
+                        <p class="text-muted small mb-0">{{ v.description }}</p>
                     </div>
                 </div>
                 {% endfor %}
@@ -131,7 +170,7 @@
 
         <!-- STRATEGIES HUB -->
         <div class="terminal-card">
-            <h4 class="fw-bold mb-3"><i class="fas fa-book text-info"></i> Trading Strategies</h4>
+            <h4 class="fw-bold mb-3"><i class="fas fa-book text-info"></i> Trading Strategies Hub</h4>
             {% for s in strategies %}
             <div class="bg-dark p-3 rounded border border-secondary mb-3">
                 <h5 class="fw-bold text-info">{{ s.title }} <span class="badge bg-secondary font-monospace small">{{ s.difficulty | upper }}</span></h5>
@@ -177,7 +216,7 @@
                 }, 1200);
             })
             .catch(() => {
-                alert("Error connecting to server. Please ensure you are logged in.");
+                alert("Error connecting to server. Please log in with your Telegram ID first.");
                 output.style.display = 'none';
             });
         }

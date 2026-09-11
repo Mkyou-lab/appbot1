@@ -14,7 +14,6 @@ logging.basicConfig(
 )
 log = logging.getLogger("MK_APP")
 
-# Define app globally right at module level
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mk-sniper-ultra-secret-key-2024')
 
@@ -37,7 +36,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = get_safe_db_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
-# Initialize Models & Dashboard Blueprint
 try:
     from models import db, AdminUser, BotUser, Signal, VideoContent, Strategy, BroadcastMessage, ActivityLog, ActivationCode
     from dashboard import dash
@@ -62,10 +60,10 @@ def load_user(user_id):
 def health():
     return {'status': 'ok', 'engine': 'MK SNIPER v47.0'}, 200
 
-# Always Sync Admin Credentials on Application Startup
+# Always Sync Admin Credentials & Pre-load Initial Video/Strategy
 with app.app_context():
     try:
-        from models import db, AdminUser
+        from models import db, AdminUser, VideoContent, Strategy
         db.create_all()
         target_user = os.environ.get('DASHBOARD_USER', 'admin').strip()
         target_pass = os.environ.get('ADMIN_PASSWORD', 'admin123').strip()
@@ -76,10 +74,31 @@ with app.app_context():
             db.session.add(admin)
 
         admin.set_password(target_pass)
+
+        # Seed initial learning video if empty
+        if VideoContent.query.count() == 0:
+            sample_vid = VideoContent(
+                title="MK Sniper Engine v47.0 - Full Masterclass",
+                description="Learn how to read wave-structure confluences and execute 5s to 1m sniper entries.",
+                video_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                category="tutorial"
+            )
+            db.session.add(sample_vid)
+
+        # Seed initial strategy if empty
+        if Strategy.query.count() == 0:
+            sample_strat = Strategy(
+                title="Micro-Tick Velocity Scalp Strategy",
+                content="Execute trades at the exact 00-second mark of candle open when 3s and 7s EMAs crossover.",
+                category="scalping",
+                difficulty="easy"
+            )
+            db.session.add(sample_strat)
+
         db.session.commit()
         log.info(f"✅ Dashboard Admin Account Synced: Username='{target_user}'")
     except Exception as e:
-        log.error(f"Error setting up admin account: {e}")
+        log.error(f"Error setting up database defaults: {e}")
 
 os.makedirs('static/uploads', exist_ok=True)
 

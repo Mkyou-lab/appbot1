@@ -14,6 +14,9 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "8552395488:AAHFmk5SvVUNbQs5HGTUS_rllHGE
 ADMIN_IDS = [int(x.strip()) for x in os.environ.get("ADMIN_IDS", "7038512176").split(",") if x.strip()]
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "@Mkg12333")
 USDT_ADDRESS = os.environ.get("USDT_ADDRESS", "TXyzAbc123...")
+WEB_URL = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "https://appbot1-production.up.railway.app")
+if not WEB_URL.startswith("http"):
+    WEB_URL = f"https://{WEB_URL}"
 
 TIMEZONE_OFFSET = 1
 LOCAL_TZ = timezone(timedelta(hours=TIMEZONE_OFFSET))
@@ -27,8 +30,10 @@ SUBSCRIPTION_PLANS = {
 
 PAIRS = {
     "EUR/USD": {"type": "forex"}, "GBP/USD": {"type": "forex"}, "USD/JPY": {"type": "forex"},
+    "AUD/USD": {"type": "forex"}, "USD/CAD": {"type": "forex"}, "USD/CHF": {"type": "forex"},
     "EUR/USD OTC": {"type": "otc"}, "GBP/USD OTC": {"type": "otc"}, "USD/JPY OTC": {"type": "otc"},
-    "Gold OTC": {"type": "otc"}, "BTC/USD": {"type": "crypto"}, "ETH/USD": {"type": "crypto"},
+    "Gold OTC": {"type": "otc"}, "Silver OTC": {"type": "otc"}, "Apple OTC": {"type": "otc"},
+    "BTC/USD": {"type": "crypto"}, "ETH/USD": {"type": "crypto"}, "SOL/USD": {"type": "crypto"}
 }
 
 DURATIONS = {
@@ -106,7 +111,7 @@ async def notify_admin_new_user(context: ContextTypes.DEFAULT_TYPE, user):
         f"💬 <b>Username:</b> @{user.username}\n"
         f"🆔 <b>Telegram ID:</b> <code>{user.telegram_id}</code>\n"
         f"📅 <b>Date:</b> {user.joined_at.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-        f"⚡ <b>Quick Approval Actions:</b>"
+        f"⚡ <b>Quick Approval & Key Actions:</b>"
     )
 
     admin_kb = InlineKeyboardMarkup([
@@ -118,9 +123,9 @@ async def notify_admin_new_user(context: ContextTypes.DEFAULT_TYPE, user):
             InlineKeyboardButton("♾️ Approve Lifetime", callback_data=f"act_{user.telegram_id}_lifetime")
         ],
         [
-            InlineKeyboardButton("🔑 Key 1W", callback_data=f"genkey_{user.telegram_id}_week"),
-            InlineKeyboardButton("🔑 Key 1M", callback_data=f"genkey_{user.telegram_id}_month"),
-            InlineKeyboardButton("🔑 Key Life", callback_data=f"genkey_{user.telegram_id}_lifetime")
+            InlineKeyboardButton("🔑 Send Key 1W", callback_data=f"sendkey_{user.telegram_id}_week"),
+            InlineKeyboardButton("🔑 Send Key 1M", callback_data=f"sendkey_{user.telegram_id}_month"),
+            InlineKeyboardButton("🔑 Send Key Life", callback_data=f"sendkey_{user.telegram_id}_lifetime")
         ]
     ])
 
@@ -146,6 +151,7 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not active:
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🔑 ENTER ACCESS KEY", callback_data="input_key_dialog")],
+            [InlineKeyboardButton("🌐 OPEN WEB TERMINAL", url=WEB_URL)],
             [InlineKeyboardButton("💳 VIEW PAYMENT PLANS", callback_data="subscribe")],
             [InlineKeyboardButton("📩 NOTIFY ADMIN I PAID", callback_data=f"notify_paid_{uid}")]
         ])
@@ -156,8 +162,8 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📊 <b>Status:</b> 🔴 Locked (Payment Required)\n\n"
             f"<b>How to unlock:</b>\n"
             f"1️⃣ Subscribe to a plan and make payment via USDT.\n"
-            f"2️⃣ If Admin gave you an <b>Access Key</b>, tap <b>ENTER ACCESS KEY</b> below.\n"
-            f"3️⃣ Admin has been instantly notified of your account creation.",
+            f"2️⃣ Enter your <b>Access Key</b> using <code>/key YOUR_KEY</code>.\n"
+            f"3️⃣ Use your signals on Telegram OR on our Web Browser Terminal!",
             parse_mode=ParseMode.HTML,
             reply_markup=kb
         )
@@ -165,8 +171,9 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🎯 GET SNIPER SIGNAL", callback_data="select_market")],
+        [InlineKeyboardButton("🌐 WEB TERMINAL", url=WEB_URL), InlineKeyboardButton("🎬 WATCH VIDEOS", callback_data="videos")],
         [InlineKeyboardButton("📊 MY METRICS", callback_data="stats"), InlineKeyboardButton("💳 EXTEND PLAN", callback_data="subscribe")],
-        [InlineKeyboardButton("📚 STRATEGIES", callback_data="strategies"), InlineKeyboardButton("ℹ️ HELP", callback_data="howto")]
+        [InlineKeyboardButton("📚 STRATEGIES", callback_data="strategies")]
     ])
     
     admin_banner = "👑 <b>ADMIN ACCESS GRANTED</b>\n\n" if uid in ADMIN_IDS else ""
@@ -175,7 +182,7 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{admin_banner}"
         f"👤 Account: <b>{fn}</b> | ID: <code>{uid}</code>\n"
         f"⚡ Status: 🟢 <b>{plan_name}</b>\n\n"
-        f"Select an option below to start trading:",
+        f"Select an option below to start trading or watch training videos:",
         parse_mode=ParseMode.HTML,
         reply_markup=kb
     )
@@ -186,6 +193,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = q.data
     await q.answer()
 
+    # Admin Direct Activation
     if data.startswith("act_"):
         if uid not in ADMIN_IDS: return
         parts = data.split("_")
@@ -204,18 +212,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     target_user.plan_expiry = now_local() + timedelta(days=days)
                 _db_ref.session.commit()
 
+        # AUTOMATICALLY NOTIFY SUBSCRIBER
         try:
             await context.bot.send_message(
                 target_uid,
-                f"🎉 <b>ACCOUNT UNLOCKED!</b>\n\nYour <b>{plan.upper()}</b> subscription has been activated by Admin!\nSend /start to begin trading.",
+                f"🎉 <b>ACCOUNT UNLOCKED & ACTIVATED!</b>\n\n"
+                f"Your <b>{plan.upper()}</b> subscription is active!\n"
+                f"You can now generate signals on Telegram or Web Terminal:\n"
+                f"🌐 <b>Web Terminal:</b> {WEB_URL}\n\n"
+                f"Send /start to open your menu!",
                 parse_mode=ParseMode.HTML
             )
         except Exception:
             pass
 
-        await q.edit_message_text(f"✅ User <code>{target_uid}</code> activated for <b>{plan.upper()}</b>.", parse_mode=ParseMode.HTML)
+        await q.edit_message_text(f"✅ User <code>{target_uid}</code> unlocked & activated for <b>{plan.upper()}</b>.", parse_mode=ParseMode.HTML)
 
-    elif data.startswith("genkey_"):
+    # Admin Key Generation + AUTOMATIC DELIVERY TO SUBSCRIBER
+    elif data.startswith("sendkey_"):
         if uid not in ADMIN_IDS: return
         parts = data.split("_")
         target_uid, plan = int(parts[1]), parts[2]
@@ -226,46 +240,55 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _db_ref.session.add(ac)
             _db_ref.session.commit()
 
+        # AUTOMATICALLY SEND ACCESS KEY DIRECTLY TO SUBSCRIBER
+        try:
+            await context.bot.send_message(
+                target_uid,
+                f"🔑 <b>YOUR ACCESS KEY IS READY!</b>\n\n"
+                f"Your Access Key: <code>{code_str}</code>\n"
+                f"Plan: <b>{plan.upper()}</b>\n\n"
+                f"To activate, redeem it in Telegram with:\n<code>/key {code_str}</code>\n\n"
+                f"Or redeem on Web Browser Terminal:\n🌐 {WEB_URL}",
+                parse_mode=ParseMode.HTML
+            )
+            delivered = "✅ Delivered to Subscriber in Telegram!"
+        except Exception as e:
+            delivered = f"⚠️ Could not auto-deliver (User blocked bot). Key generated."
+
         await q.edit_message_text(
-            f"🎟 <b>ACCESS KEY GENERATED FOR USER <code>{target_uid}</code>:</b>\n\n"
+            f"🎟 <b>ACCESS KEY CREATED & SENT:</b>\n\n"
+            f"User ID: <code>{target_uid}</code>\n"
             f"Key: <code>{code_str}</code>\n"
-            f"Plan: <b>{plan.upper()}</b>\n\n"
-            f"<i>Forward this code to the user. They can redeem it with:</i>\n<code>/key {code_str}</code>",
+            f"Plan: <b>{plan.upper()}</b>\n"
+            f"{delivered}",
             parse_mode=ParseMode.HTML
         )
 
-    elif data.startswith("notify_paid_"):
-        target_uid = int(data.replace("notify_paid_", ""))
-        for admin_id in ADMIN_IDS:
-            try:
-                await context.bot.send_message(
-                    admin_id,
-                    f"💰 <b>PAYMENT NOTIFICATION!</b>\nUser <code>{target_uid}</code> (@{q.from_user.username}) claims they have sent payment.",
-                    parse_mode=ParseMode.HTML
-                )
-            except Exception:
-                pass
-        await q.edit_message_text("✅ Admin notified! Your account will unlock shortly after verification.")
+    elif data == "videos":
+        videos_txt = "🎬 <b>LEARN HOW TO TRADE (TRAINING VIDEOS)</b>\n\n"
+        with _app_ref.app_context():
+            from models import VideoContent
+            vids = VideoContent.query.filter_by(is_active=True).all()
+            if not vids:
+                videos_txt += "No training videos uploaded yet."
+            else:
+                for v in vids:
+                    videos_txt += f"🎥 <b>{v.title}</b>\n{v.description or ''}\n🔗 <a href='{v.video_url}'>Watch Video Link</a>\n\n"
+        
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("🌐 Watch on Web Browser", url=f"{WEB_URL}/terminal#videos")]])
+        await q.edit_message_text(videos_txt, parse_mode=ParseMode.HTML, disable_web_page_preview=False, reply_markup=kb)
 
-    elif data == "input_key_dialog":
-        await q.edit_message_text(
-            f"🔑 <b>ENTER ACCESS KEY</b>\n\n"
-            f"Please type your key in chat using command:\n"
-            f"<code>/key YOUR_KEY</code>\n\n"
-            f"Example: <code>/key MK-WK-4892</code>",
-            parse_mode=ParseMode.HTML
-        )
-
-    elif data == "subscribe":
-        await q.edit_message_text(
-            f"💳 <b>SUBSCRIPTION PLANS & PAYMENT</b>\n\n"
-            f"• 1 Week Access: <b>$20</b>\n"
-            f"• 1 Month Access: <b>$100</b>\n"
-            f"• Lifetime License: <b>$150</b>\n\n"
-            f"💰 <b>USDT (TRC20 Wallet Address):</b>\n<code>{USDT_ADDRESS}</code>\n\n"
-            f"After sending payment, contact Admin {ADMIN_USERNAME} with your ID: <code>{uid}</code> to receive your Access Key.",
-            parse_mode=ParseMode.HTML
-        )
+    elif data == "strategies":
+        strats_txt = "📚 <b>SNIPER TRADING STRATEGIES</b>\n\n"
+        with _app_ref.app_context():
+            from models import Strategy
+            strats = Strategy.query.filter_by(is_active=True).all()
+            if not strats:
+                strats_txt += "No trading strategies uploaded yet."
+            else:
+                for s in strats:
+                    strats_txt += f"📌 <b>{s.title}</b> ({s.difficulty.upper()})\n{s.content[:300]}...\n\n"
+        await q.edit_message_text(strats_txt, parse_mode=ParseMode.HTML)
 
     elif data == "select_market":
         active, _, _ = check_user_active(uid)
@@ -315,6 +338,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.HTML
         )
 
+# Command to Redeem Key
 async def cmd_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     if not context.args:
@@ -346,16 +370,16 @@ async def cmd_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"🎉 <b>ACCESS KEY REDEEMED SUCCESSFULLY!</b>\n\n"
                 f"Plan Activated: <b>{code_entry.plan.upper()}</b>\n"
-                f"Your account is unlocked permanently for this period.\n\n"
-                f"Send /start to open your trading terminal!",
+                f"Your account is unlocked permanently on Telegram AND Web Browser Terminal!\n\n"
+                f"🌐 <b>Web Terminal:</b> {WEB_URL}\n\n"
+                f"Send /start to open your menu!",
                 parse_mode=ParseMode.HTML
             )
 
 async def cmd_genkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMIN_IDS: return
     plan = context.args[0].lower() if context.args else "week"
-    if plan not in ("week", "month", "lifetime"):
-        plan = "week"
+    if plan not in ("week", "month", "lifetime"): plan = "week"
 
     code_str = f"MK-{plan[:2].upper()}-{random.randint(1000, 9999)}"
     with _app_ref.app_context():
@@ -367,7 +391,7 @@ async def cmd_genkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎟 <b>NEW ACCESS KEY CREATED</b>\n\n"
         f"Key: <code>{code_str}</code>\n"
         f"Plan: <b>{plan.upper()}</b>\n\n"
-        f"Forward this key to the customer.",
+        f"Forward this key to customer.",
         parse_mode=ParseMode.HTML
     )
 

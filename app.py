@@ -3,9 +3,8 @@ import sys
 import asyncio
 import threading
 import logging
-from pathlib import Path
 
-from flask import Flask, redirect, url_for
+from flask import Flask
 from flask_login import LoginManager
 
 from models import db, AdminUser, BotUser, Signal, VideoContent, Strategy, BroadcastMessage, ActivityLog
@@ -24,10 +23,19 @@ log = logging.getLogger("MK_APP")
 # ==================== FLASK APP ====================
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mk-sniper-ultra-secret-key-2024')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///mk_sniper.db')
-if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace(
-        'postgres://', 'postgresql://', 1)
+
+# Safely parse and sanitize DATABASE_URL
+raw_db_url = os.environ.get('DATABASE_URL', '').strip()
+
+if not raw_db_url:
+    # Default to local SQLite if no valid database URL is provided
+    db_url = 'sqlite:///mk_sniper.db'
+elif raw_db_url.startswith('postgres://'):
+    db_url = raw_db_url.replace('postgres://', 'postgresql://', 1)
+else:
+    db_url = raw_db_url
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
@@ -37,19 +45,16 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'dash.login'
 
-
 @login_manager.user_loader
 def load_user(user_id):
     return AdminUser.query.get(int(user_id))
 
-
+# Register Dashboard Blueprint
 app.register_blueprint(dash)
-
 
 @app.route('/health')
 def health():
     return {'status': 'ok', 'engine': 'MK SNIPER v47.0'}, 200
-
 
 # Create tables and default admin
 with app.app_context():
@@ -62,18 +67,15 @@ with app.app_context():
         db.session.commit()
         log.info("Default admin user created")
 
-# Ensure upload directory
 os.makedirs('static/uploads', exist_ok=True)
-
 
 # ==================== TELEGRAM BOT THREAD ====================
 def run_telegram_bot():
-    """Runs the Telegram bot in a separate thread with its own event loop."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
     try:
-        from telegram.ext import Application as TGApp, CommandHandler, CallbackQueryHandler
+        from telegram.ext import Application as TGApp
         from bot_engine import (setup_bot_handlers, init_bot_db, BOT_TOKEN)
 
         if ":" not in BOT_TOKEN:
@@ -106,8 +108,6 @@ def run_telegram_bot():
     finally:
         loop.close()
 
-
-# Start bot thread
 bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
 bot_thread.start()
 log.info("🚀 Bot thread started")

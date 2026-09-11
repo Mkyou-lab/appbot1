@@ -70,7 +70,7 @@ class BotUser(db.Model):
 class ActivationCode(db.Model):
     __tablename__ = 'activation_codes'
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(20), unique=True, nullable=False)
+    code = db.Column(db.String(30), unique=True, nullable=False)
     plan = db.Column(db.String(20), nullable=False) # week, month, lifetime
     is_used = db.Column(db.Boolean, default=False)
     used_by = db.Column(db.BigInteger, nullable=True)

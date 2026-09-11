@@ -17,18 +17,17 @@ log = logging.getLogger("MK_APP")
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mk-sniper-ultra-secret-key-2024')
 
-# ==================== FAILSAFE DATABASE URI PARSER ====================
+# Safe Database Connection Parser
 def get_safe_db_uri():
     raw_url = os.environ.get('DATABASE_URL', '').strip()
     if raw_url.startswith('postgres://'):
         raw_url = raw_url.replace('postgres://', 'postgresql://', 1)
-    
     if raw_url:
         try:
             make_url(raw_url)
             return raw_url
         except Exception as e:
-            log.warning(f"⚠️ DATABASE_URL invalid ({e}). Using SQLite.")
+            log.warning(f"⚠️ Invalid DATABASE_URL ({e}). Using SQLite.")
 
     base_dir = os.path.abspath(os.path.dirname(__file__))
     return f"sqlite:///{os.path.join(base_dir, 'mk_sniper.db')}"
@@ -37,7 +36,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = get_safe_db_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
-from models import db, AdminUser, BotUser, Signal, VideoContent, Strategy, BroadcastMessage, ActivityLog
+from models import db, AdminUser, BotUser, Signal, VideoContent, Strategy, BroadcastMessage, ActivityLog, ActivationCode
 from dashboard import dash
 
 db.init_app(app)
@@ -59,7 +58,7 @@ app.register_blueprint(dash)
 def health():
     return {'status': 'ok', 'engine': 'MK SNIPER v47.0'}, 200
 
-# ==================== GUARANTEED ADMIN LOGIN SYNC ====================
+# Always Sync Admin Login Credentials on Startup
 with app.app_context():
     try:
         db.create_all()
@@ -73,13 +72,13 @@ with app.app_context():
 
         admin.set_password(target_pass)
         db.session.commit()
-        log.info(f"✅ Admin credentials synced! Username: '{target_user}'")
+        log.info(f"✅ Dashboard Admin User ready: Username='{target_user}'")
     except Exception as e:
-        log.error(f"Error syncing admin account: {e}")
+        log.error(f"Error setting up admin account: {e}")
 
 os.makedirs('static/uploads', exist_ok=True)
 
-# ==================== TELEGRAM BOT THREAD ====================
+# Start Bot Thread
 def run_telegram_bot():
     log.info("Starting Telegram Bot Thread...")
     try:
@@ -90,10 +89,10 @@ def run_telegram_bot():
         from bot_engine import setup_bot_handlers, init_bot_db, BOT_TOKEN
 
         if not BOT_TOKEN or ":" not in BOT_TOKEN:
-            log.warning("❌ Missing or invalid BOT_TOKEN! Dashboard active, bot thread idle.")
+            log.warning("❌ Missing or invalid BOT_TOKEN!")
             return
 
-        init_bot_db(app, db, BotUser, Signal, ActivityLog)
+        init_bot_db(app, db, BotUser, Signal, ActivityLog, ActivationCode)
 
         tg_app = TGApp.builder().token(BOT_TOKEN).build()
         setup_bot_handlers(tg_app)
@@ -105,12 +104,12 @@ def run_telegram_bot():
                     allowed_updates=['message', 'callback_query'],
                     drop_pending_updates=True
                 )
-                log.info("🤖 Telegram Bot active!")
+                log.info("🤖 MK Sniper Telegram Bot is Active!")
                 await asyncio.Event().wait()
 
         loop.run_until_complete(run())
     except Exception as e:
-        log.error(f"⚠️ Telegram Bot thread warning: {e}")
+        log.error(f"⚠️ Telegram Bot error: {e}")
 
 try:
     bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)

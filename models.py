@@ -1,8 +1,8 @@
 import os
-import bcrypt
 from datetime import datetime, timedelta, timezone
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
@@ -21,10 +21,10 @@ class AdminUser(UserMixin, db.Model):
     last_login = db.Column(db.DateTime)
 
     def set_password(self, password):
-        self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
-        return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
+        return check_password_hash(self.password_hash, password)
 
 class BotUser(db.Model):
     __tablename__ = 'bot_users'
@@ -47,9 +47,12 @@ class BotUser(db.Model):
     last_signal_at = db.Column(db.DateTime, nullable=True)
 
     def has_active_subscription(self):
-        if self.plan == 'lifetime': return True
-        if self.plan == 'trial': return self.trial_used < 2
-        if self.plan_expiry: return now_local() < self.plan_expiry
+        if not self.is_locked and self.plan == 'lifetime':
+            return True
+        if not self.is_locked and self.plan == 'trial':
+            return self.trial_used < 2
+        if not self.is_locked and self.plan_expiry:
+            return now_local() < self.plan_expiry
         return False
 
     @property
@@ -63,6 +66,15 @@ class BotUser(db.Model):
         if self.plan == 'trial': return max(0, 2 - self.trial_used)
         if self.plan_expiry: return max(0, (self.plan_expiry - now_local()).days)
         return 0
+
+class ActivationCode(db.Model):
+    __tablename__ = 'activation_codes'
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(20), unique=True, nullable=False)
+    plan = db.Column(db.String(20), nullable=False) # week, month, lifetime
+    is_used = db.Column(db.Boolean, default=False)
+    used_by = db.Column(db.BigInteger, nullable=True)
+    created_at = db.Column(db.DateTime, default=now_local)
 
 class Signal(db.Model):
     __tablename__ = 'signals'

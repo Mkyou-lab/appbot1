@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -71,7 +72,7 @@ class ActivationCode(db.Model):
     __tablename__ = 'activation_codes'
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(30), unique=True, nullable=False)
-    plan = db.Column(db.String(20), nullable=False)
+    plan = db.Column(db.String(20), nullable=False) # week, month, lifetime
     is_used = db.Column(db.Boolean, default=False)
     used_by = db.Column(db.BigInteger, nullable=True)
     created_at = db.Column(db.DateTime, default=now_local)
@@ -100,6 +101,21 @@ class VideoContent(db.Model):
     views = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=now_local)
     is_active = db.Column(db.Boolean, default=True)
+
+    @property
+    def embed_url(self):
+        """Converts standard YouTube / Vimeo URLs to playable Embed URLs."""
+        url = self.video_url or ""
+        if "youtube.com/watch?v=" in url:
+            vid_id = url.split("watch?v=")[1].split("&")[0]
+            return f"https://www.youtube.com/embed/{vid_id}?autoplay=1"
+        elif "youtu.be/" in url:
+            vid_id = url.split("youtu.be/")[1].split("?")[0]
+            return f"https://www.youtube.com/embed/{vid_id}?autoplay=1"
+        elif "vimeo.com/" in url:
+            vid_id = url.split("vimeo.com/")[1]
+            return f"https://player.vimeo.com/video/{vid_id}?autoplay=1"
+        return url
 
 class Strategy(db.Model):
     __tablename__ = 'strategies'

@@ -10,9 +10,9 @@ from models import (db, AdminUser, BotUser, Signal, VideoContent, Strategy,
 dash = Blueprint('dash', __name__)
 
 SUBSCRIPTION_PLANS = {
-    "week": {"name": "1 Week", "price": "$20", "days": 7},
-    "month": {"name": "1 Month", "price": "$100", "days": 30},
-    "lifetime": {"name": "Lifetime", "price": "$150", "days": 36500},
+    "week": {"name": "1 Week Access", "price": "$20", "days": 7},
+    "month": {"name": "1 Month VIP", "price": "$100", "days": 30},
+    "lifetime": {"name": "Lifetime License", "price": "$150", "days": 36500},
 }
 
 PAIRS = {
@@ -21,7 +21,7 @@ PAIRS = {
     "BTC/USD": "crypto", "ETH/USD": "crypto", "SOL/USD": "crypto"
 }
 
-# ==================== PUBLIC WEB TERMINAL FOR SUBSCRIBERS ====================
+# ==================== PUBLIC WEB TERMINAL ====================
 @dash.route('/')
 @dash.route('/terminal')
 def public_terminal():
@@ -33,7 +33,12 @@ def public_terminal():
     videos = VideoContent.query.filter_by(is_active=True).order_by(VideoContent.created_at.desc()).all()
     strategies = Strategy.query.filter_by(is_active=True).order_by(Strategy.created_at.desc()).all()
 
-    return render_template('terminal.html', user=user, videos=videos, strategies=strategies, pairs=PAIRS)
+    admin_username = os.environ.get("ADMIN_USERNAME", "@Mkg12333")
+    usdt_address = os.environ.get("USDT_ADDRESS", "TXyzAbc123...")
+    bot_link = f"https://t.me/{os.environ.get('BOT_USERNAME', 'mk_sniper_bot')}"
+
+    return render_template('terminal.html', user=user, videos=videos, strategies=strategies, pairs=PAIRS,
+                           admin_username=admin_username, usdt_address=usdt_address, bot_link=bot_link)
 
 @dash.route('/api/web-login', methods=['POST'])
 def web_login():
@@ -41,7 +46,7 @@ def web_login():
     key = request.form.get('key', '').strip().upper()
 
     if not telegram_id.isdigit():
-        flash('Invalid Telegram ID', 'error')
+        flash('Invalid Telegram ID. Numbers only.', 'error')
         return redirect(url_for('dash.public_terminal'))
 
     tg_id = int(telegram_id)
@@ -66,7 +71,7 @@ def web_login():
                 days = SUBSCRIPTION_PLANS.get(code_entry.plan, {}).get('days', 7)
                 user.plan_expiry = now_local() + timedelta(days=days)
             db.session.commit()
-            flash(f'Access Key Redeemed! {code_entry.plan.upper()} Plan Active!', 'success')
+            flash(f'Access Key Accepted! {code_entry.plan.upper()} Plan Unlocked!', 'success')
         else:
             flash('Invalid or used Access Key', 'error')
 
@@ -84,7 +89,7 @@ def generate_web_signal():
 
     user = BotUser.query.filter_by(telegram_id=tg_id).first()
     if not user or not user.has_active_subscription():
-        return jsonify({'error': 'Subscription required! Please enter an Access Key.'}), 403
+        return jsonify({'error': 'Subscription required! Enter an Access Key or purchase a plan.'}), 403
 
     direction = random.choice(['CALL ⬆️', 'PUT ⬇️'])
     accuracy = round(random.uniform(97.3, 99.6), 1)
@@ -100,7 +105,7 @@ def generate_web_signal():
         'direction': direction,
         'accuracy': accuracy,
         'entry_time': (datetime.now() + timedelta(seconds=2)).strftime('%H:%M:%S'),
-        'confluences': ['Micro Trend Alignment (UP)', 'RSI Momentum > 55', 'Volume Spike Validated']
+        'confluences': ['Micro-Tick EMA Alignment', 'RSI Momentum Spike', 'Volume Wave Validated']
     })
 
 # ==================== ADMIN DASHBOARD ====================
@@ -258,7 +263,7 @@ def add_video():
     )
     db.session.add(v)
     db.session.commit()
-    flash('Video added', 'success')
+    flash('Video tutorial added!', 'success')
     return redirect(url_for('dash.content'))
 
 @dash.route('/content/video/<int:vid>/delete', methods=['POST'])
@@ -282,7 +287,7 @@ def add_strategy():
     )
     db.session.add(s)
     db.session.commit()
-    flash('Strategy added', 'success')
+    flash('Strategy added!', 'success')
     return redirect(url_for('dash.content'))
 
 @dash.route('/content/strategy/<int:sid>/delete', methods=['POST'])
@@ -315,7 +320,7 @@ def generate_key():
     ac = ActivationCode(code=code_str, plan=plan)
     db.session.add(ac)
     db.session.commit()
-    flash(f'Generated Key: {code_str} ({plan.upper()})', 'success')
+    flash(f'Generated Access Key: {code_str} ({plan.upper()})', 'success')
     return redirect(url_for('dash.subscriptions'))
 
 @dash.route('/analytics')
@@ -340,7 +345,7 @@ def broadcast():
         if msg:
             db.session.add(BroadcastMessage(message=msg))
             db.session.commit()
-            flash('Broadcast saved. Send via Telegram using /broadcast', 'info')
+            flash('Broadcast message saved! Use /broadcast in Telegram to transmit.', 'info')
         return redirect(url_for('dash.broadcast'))
     return render_template('broadcast.html', broadcasts=BroadcastMessage.query.order_by(BroadcastMessage.sent_at.desc()).limit(20).all())
 

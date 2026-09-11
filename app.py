@@ -17,7 +17,7 @@ log = logging.getLogger("MK_APP")
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mk-sniper-ultra-secret-key-2024')
 
-# Safe Database Connection Parser
+# Safe Database URI
 def get_safe_db_uri():
     raw_url = os.environ.get('DATABASE_URL', '').strip()
     if raw_url.startswith('postgres://'):
@@ -58,7 +58,7 @@ app.register_blueprint(dash)
 def health():
     return {'status': 'ok', 'engine': 'MK SNIPER v47.0'}, 200
 
-# Always Sync Admin Login Credentials on Startup
+# Always Sync Admin Credentials on Startup
 with app.app_context():
     try:
         db.create_all()
@@ -72,7 +72,7 @@ with app.app_context():
 
         admin.set_password(target_pass)
         db.session.commit()
-        log.info(f"✅ Dashboard Admin User ready: Username='{target_user}'")
+        log.info(f"✅ Dashboard Admin User Ready: Username='{target_user}'")
     except Exception as e:
         log.error(f"Error setting up admin account: {e}")
 

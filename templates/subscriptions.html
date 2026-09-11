@@ -1,0 +1,73 @@
+<!-- templates/subscriptions.html -->
+{% extends "base.html" %}
+{% block title %}Subscriptions - MK Sniper{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-credit-card"></i> Subscription Management</h2>
+</div>
+
+<div class="stats-row compact">
+    <div class="stat-card-sm">
+        <div class="stat-icon-sm trial"><i class="fas fa-hourglass-half"></i></div>
+        <div><div class="stat-val">{{ trial_users }}</div><div class="stat-lbl">Trial</div></div>
+    </div>
+    <div class="stat-card-sm">
+        <div class="stat-icon-sm week"><i class="fas fa-calendar-week"></i></div>
+        <div><div class="stat-val">{{ week_users }}</div><div class="stat-lbl">Weekly</div></div>
+    </div>
+    <div class="stat-card-sm">
+        <div class="stat-icon-sm month"><i class="fas fa-calendar-alt"></i></div>
+        <div><div class="stat-val">{{ month_users }}</div><div class="stat-lbl">Monthly</div></div>
+    </div>
+    <div class="stat-card-sm">
+        <div class="stat-icon-sm lifetime"><i class="fas fa-infinity"></i></div>
+        <div><div class="stat-val">{{ lifetime_users }}</div><div class="stat-lbl">Lifetime</div></div>
+    </div>
+</div>
+
+<div class="table-card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Plan</th>
+                <th>Started</th>
+                <th>Expires</th>
+                <th>Days Left</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in subs %}
+            <tr>
+                <td>
+                    <div class="user-cell">
+                        <div class="user-avatar-sm">{{ u.first_name[0] if u.first_name else 'U' }}</div>
+                        <div>{{ u.first_name or 'User' }} <span class="text-muted">@{{ u.username or 'N/A' }}</span></div>
+                    </div>
+                </td>
+                <td><span class="plan-badge {{ u.plan }}">{{ u.plan | upper }}</span></td>
+                <td>{{ u.plan_started.strftime('%b %d, %Y') if u.plan_started else 'N/A' }}</td>
+                <td>{{ u.plan_expiry.strftime('%b %d, %Y') if u.plan_expiry else 'Never' }}</td>
+                <td>
+                    {% if u.plan == 'lifetime' %}
+                    <span class="text-success">∞</span>
+                    {% else %}
+                    <span class="{{ 'text-danger' if u.days_remaining < 3 else 'text-success' }}">
+                        {{ u.days_remaining }} days
+                    </span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if u.has_active_subscription() %}
+                    <span class="status-badge active">Active</span>
+                    {% else %}
+                    <span class="status-badge expired">Expired</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

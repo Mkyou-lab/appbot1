@@ -1,0 +1,180 @@
+<!-- templates/content.html -->
+{% extends "base.html" %}
+{% block title %}Content - MK Sniper{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-photo-video"></i> Content Management</h2>
+</div>
+
+<div class="content-tabs">
+    <button class="tab-btn active" onclick="showTab('videos')">
+        <i class="fas fa-video"></i> Videos ({{ videos|length }})
+    </button>
+    <button class="tab-btn" onclick="showTab('strategies')">
+        <i class="fas fa-book"></i> Strategies ({{ strategies|length }})
+    </button>
+</div>
+
+<!-- Videos Tab -->
+<div id="videosTab" class="tab-content active">
+    <div class="add-card">
+        <h4><i class="fas fa-plus-circle"></i> Add New Video</h4>
+        <form method="POST" action="{{ url_for('dash.add_video') }}" class="content-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" name="title" required class="dark-input" placeholder="Video title...">
+                </div>
+                <div class="form-group">
+                    <label>Video URL</label>
+                    <input type="text" name="video_url" required class="dark-input" placeholder="YouTube/Direct URL...">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" class="dark-input" rows="3" placeholder="Describe the video..."></textarea>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Thumbnail URL</label>
+                    <input type="text" name="thumbnail_url" class="dark-input" placeholder="Optional thumbnail URL...">
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select name="category" class="dark-select">
+                        <option value="strategy">Strategy</option>
+                        <option value="tutorial">Tutorial</option>
+                        <option value="market_analysis">Market Analysis</option>
+                        <option value="tips">Tips & Tricks</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="is_premium"> Premium Only
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="submit-btn"><i class="fas fa-upload"></i> Add Video</button>
+        </form>
+    </div>
+
+    <div class="content-grid">
+        {% for v in videos %}
+        <div class="content-card video-card" style="animation-delay: {{ loop.index * 0.08 }}s">
+            <div class="content-card-header">
+                {% if v.thumbnail_url %}
+                <img src="{{ v.thumbnail_url }}" alt="{{ v.title }}" class="content-thumb">
+                {% else %}
+                <div class="content-thumb-placeholder">
+                    <i class="fas fa-play-circle"></i>
+                </div>
+                {% endif %}
+                {% if v.is_premium %}
+                <span class="premium-badge"><i class="fas fa-crown"></i> Premium</span>
+                {% endif %}
+            </div>
+            <div class="content-card-body">
+                <h5>{{ v.title }}</h5>
+                <p>{{ v.description[:100] if v.description else 'No description' }}...</p>
+                <div class="content-meta">
+                    <span><i class="fas fa-eye"></i> {{ v.views }} views</span>
+                    <span><i class="fas fa-tag"></i> {{ v.category }}</span>
+                </div>
+            </div>
+            <div class="content-card-actions">
+                <form method="POST" action="{{ url_for('dash.toggle_video', vid=v.id) }}" style="display:inline">
+                    <button type="submit" class="action-btn-sm {{ 'active' if v.is_active else 'inactive' }}">
+                        <i class="fas fa-{{ 'eye' if v.is_active else 'eye-slash' }}"></i>
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('dash.delete_video', vid=v.id) }}" style="display:inline"
+                      onsubmit="return confirm('Delete this video?')">
+                    <button type="submit" class="action-btn-sm delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Strategies Tab -->
+<div id="strategiesTab" class="tab-content">
+    <div class="add-card">
+        <h4><i class="fas fa-plus-circle"></i> Add New Strategy</h4>
+        <form method="POST" action="{{ url_for('dash.add_strategy') }}" class="content-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" name="title" required class="dark-input" placeholder="Strategy name...">
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select name="category" class="dark-select">
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                        <option value="scalping">Scalping</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Difficulty</label>
+                    <select name="difficulty" class="dark-select">
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Strategy Content</label>
+                <textarea name="content" class="dark-input" rows="6" required
+                          placeholder="Write the full strategy guide here..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_premium"> Premium Only
+                </label>
+            </div>
+            <button type="submit" class="submit-btn"><i class="fas fa-save"></i> Save Strategy</button>
+        </form>
+    </div>
+
+    <div class="content-grid">
+        {% for s in strategies %}
+        <div class="content-card strategy-card" style="animation-delay: {{ loop.index * 0.08 }}s">
+            <div class="content-card-body">
+                <div class="difficulty-badge {{ s.difficulty }}">{{ s.difficulty | upper }}</div>
+                <h5>{{ s.title }}</h5>
+                <p>{{ s.content[:150] }}...</p>
+                <div class="content-meta">
+                    <span><i class="fas fa-eye"></i> {{ s.views }} views</span>
+                    <span><i class="fas fa-tag"></i> {{ s.category }}</span>
+                    {% if s.is_premium %}
+                    <span class="premium-text"><i class="fas fa-crown"></i> Premium</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="content-card-actions">
+                <form method="POST" action="{{ url_for('dash.delete_strategy', sid=s.id) }}" style="display:inline"
+                      onsubmit="return confirm('Delete?')">
+                    <button type="submit" class="action-btn-sm delete"><i class="fas fa-trash"></i></button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function showTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tab + 'Tab').classList.add('active');
+    event.target.closest('.tab-btn').classList.add('active');
+}
+</script>
+{% endblock %}

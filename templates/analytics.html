@@ -1,0 +1,80 @@
+<!-- templates/analytics.html -->
+{% extends "base.html" %}
+{% block title %}Analytics - MK Sniper{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-chart-bar"></i> Signal Analytics</h2>
+</div>
+
+<!-- Pair Performance -->
+<div class="analytics-grid">
+    {% for pair, stats in pair_stats.items() %}
+    {% set wr = (stats.wins / stats.total * 100) if stats.total > 0 else 0 %}
+    <div class="pair-stat-card" style="animation-delay: {{ loop.index * 0.05 }}s">
+        <div class="pair-name">{{ pair }}</div>
+        <div class="pair-stats">
+            <div class="pair-wr">
+                <div class="circular-progress" style="--progress: {{ wr }}">
+                    <span>{{ '%.0f' | format(wr) }}%</span>
+                </div>
+            </div>
+            <div class="pair-details">
+                <div class="pair-detail green">{{ stats.wins }} wins</div>
+                <div class="pair-detail red">{{ stats.losses }} losses</div>
+                <div class="pair-detail">{{ stats.total }} total</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Recent Signals Table -->
+<div class="table-card mt-4">
+    <div class="card-header-custom">
+        <h3>Recent Signal History</h3>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>User</th>
+                <th>Pair</th>
+                <th>Direction</th>
+                <th>Duration</th>
+                <th>Accuracy</th>
+                <th>Result</th>
+                <th>PnL</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in signals %}
+            <tr>
+                <td>{{ s.created_at.strftime('%b %d %H:%M') if s.created_at else '' }}</td>
+                <td><code>{{ s.user_id }}</code></td>
+                <td>{{ s.pair }}</td>
+                <td>
+                    <span class="direction-badge {{ s.direction | lower }}">
+                        <i class="fas fa-arrow-{{ 'up' if s.direction == 'CALL' else 'down' }}"></i>
+                        {{ s.direction }}
+                    </span>
+                </td>
+                <td>{{ s.duration }}</td>
+                <td>{{ '%.1f' | format(s.accuracy) }}%</td>
+                <td>
+                    {% if s.result == 'win' %}
+                    <span class="result-badge win"><i class="fas fa-check"></i> WIN</span>
+                    {% elif s.result == 'loss' %}
+                    <span class="result-badge loss"><i class="fas fa-times"></i> LOSS</span>
+                    {% else %}
+                    <span class="result-badge pending">PENDING</span>
+                    {% endif %}
+                </td>
+                <td class="{{ 'positive' if (s.pnl or 0) >= 0 else 'negative' }}">
+                    ${{ '%.2f' | format(s.pnl or 0) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

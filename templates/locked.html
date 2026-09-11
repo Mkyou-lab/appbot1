@@ -1,0 +1,29 @@
+<!-- templates/locked.html -->
+{% extends "base.html" %}
+{% block title %}Account Locked{% endblock %}
+{% block public_content %}
+<div class="locked-page">
+    <div class="locked-container">
+        <div class="lock-icon-container">
+            <div class="lock-ring"></div>
+            <i class="fas fa-lock"></i>
+        </div>
+        <h1>Account Locked</h1>
+        <p>Your account requires an active subscription to access MK Sniper signals.</p>
+        <div class="plans-display">
+            <div class="plan-item">
+                <span class="plan-name">1 Week</span>
+                <span class="plan-price">$20</span>
+            </div>
+            <div class="plan-item featured">
+                <span class="plan-name">1 Month</span>
+                <span class="plan-price">$100</span>
+            </div>
+            <div class="plan-item">
+                <span class="plan-name">Lifetime</span>
+                <span class="plan-price">$150</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

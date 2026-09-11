@@ -1,0 +1,123 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MK Sniper Dashboard{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/[email protected]/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <div class="app-container">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <div class="logo-icon">
+                        <i class="fas fa-crosshairs"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>MK SNIPER</h1>
+                        <span class="version-badge">v47.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-menu">
+                <a href="{{ url_for('dash.dashboard') }}" class="menu-item {% if request.endpoint == 'dash.dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                    <div class="menu-indicator"></div>
+                </a>
+                <a href="{{ url_for('dash.users') }}" class="menu-item {% if request.endpoint == 'dash.users' %}active{% endif %}">
+                    <i class="fas fa-users"></i>
+                    <span>Users</span>
+                    <div class="menu-indicator"></div>
+                </a>
+                <a href="{{ url_for('dash.content') }}" class="menu-item {% if request.endpoint == 'dash.content' %}active{% endif %}">
+                    <i class="fas fa-video"></i>
+                    <span>Content</span>
+                    <div class="menu-indicator"></div>
+                </a>
+                <a href="{{ url_for('dash.subscriptions') }}" class="menu-item {% if request.endpoint == 'dash.subscriptions' %}active{% endif %}">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Subscriptions</span>
+                    <div class="menu-indicator"></div>
+                </a>
+                <a href="{{ url_for('dash.analytics') }}" class="menu-item {% if request.endpoint == 'dash.analytics' %}active{% endif %}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Analytics</span>
+                    <div class="menu-indicator"></div>
+                </a>
+                <a href="{{ url_for('dash.broadcast') }}" class="menu-item {% if request.endpoint == 'dash.broadcast' %}active{% endif %}">
+                    <i class="fas fa-bullhorn"></i>
+                    <span>Broadcast</span>
+                    <div class="menu-indicator"></div>
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="engine-status">
+                    <div class="status-dot pulse"></div>
+                    <span>Engine Online</span>
+                </div>
+                <a href="{{ url_for('dash.logout') }}" class="menu-item logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <button class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="top-bar-right">
+                    <div class="live-clock" id="liveClock"></div>
+                    <div class="online-users">
+                        <div class="status-dot pulse"></div>
+                        <span id="onlineCount">0</span> online
+                    </div>
+                    <div class="admin-badge">
+                        <i class="fas fa-shield-halved"></i>
+                        Admin
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' }} alert-dismissible fade show flash-alert" role="alert">
+                        <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' if category == 'error' else 'info-circle' }}"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    {% else %}
+    {% block public_content %}{% endblock %}
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/[email protected]/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

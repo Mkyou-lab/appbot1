@@ -1,0 +1,232 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+{% block title %}Dashboard - MK Sniper{% endblock %}
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card glow-blue">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+                <div class="stat-value counter" data-target="{{ total_users }}">0</div>
+                <div class="stat-label">Total Users</div>
+                <div class="stat-change positive">+{{ new_today }} today</div>
+            </div>
+            <div class="stat-bg-icon"><i class="fas fa-users"></i></div>
+        </div>
+
+        <div class="stat-card glow-green">
+            <div class="stat-icon"><i class="fas fa-crown"></i></div>
+            <div class="stat-info">
+                <div class="stat-value counter" data-target="{{ active_subs }}">0</div>
+                <div class="stat-label">Active Subs</div>
+                <div class="stat-change">${{ revenue }} revenue</div>
+            </div>
+            <div class="stat-bg-icon"><i class="fas fa-crown"></i></div>
+        </div>
+
+        <div class="stat-card glow-yellow">
+            <div class="stat-icon"><i class="fas fa-signal"></i></div>
+            <div class="stat-info">
+                <div class="stat-value counter" data-target="{{ total_signals }}">0</div>
+                <div class="stat-label">Total Signals</div>
+                <div class="stat-change">{{ signals_today }} today</div>
+            </div>
+            <div class="stat-bg-icon"><i class="fas fa-signal"></i></div>
+        </div>
+
+        <div class="stat-card glow-purple">
+            <div class="stat-icon"><i class="fas fa-trophy"></i></div>
+            <div class="stat-info">
+                <div class="stat-value">{{ win_rate }}%</div>
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-change positive">{{ wins }}W / {{ losses }}L</div>
+            </div>
+            <div class="stat-bg-icon"><i class="fas fa-trophy"></i></div>
+        </div>
+
+        <div class="stat-card glow-red">
+            <div class="stat-icon"><i class="fas fa-lock"></i></div>
+            <div class="stat-info">
+                <div class="stat-value counter" data-target="{{ locked_users }}">0</div>
+                <div class="stat-label">Locked Users</div>
+                <div class="stat-change">Pending approval</div>
+            </div>
+            <div class="stat-bg-icon"><i class="fas fa-lock"></i></div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-row">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-area"></i> Signal Performance</h3>
+                <span class="chart-badge">Last 7 days</span>
+            </div>
+            <div class="chart-body">
+                <canvas id="signalChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-line"></i> User Growth</h3>
+                <span class="chart-badge">Last 7 days</span>
+            </div>
+            <div class="chart-body">
+                <canvas id="growthChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity & Users Row -->
+    <div class="bottom-row">
+        <div class="activity-card">
+            <div class="card-header-custom">
+                <h3><i class="fas fa-bolt"></i> Live Activity Feed</h3>
+                <div class="live-indicator">
+                    <div class="status-dot pulse"></div>
+                    LIVE
+                </div>
+            </div>
+            <div class="activity-list" id="activityFeed">
+                {% for a in recent_activity %}
+                <div class="activity-item" style="animation-delay: {{ loop.index * 0.05 }}s">
+                    <div class="activity-icon {{ 'green' if 'start' in a.action else 'blue' if 'signal' in a.action else 'yellow' }}">
+                        <i class="fas fa-{{ 'user-plus' if 'start' in a.action else 'crosshairs' if 'signal' in a.action else 'key' if 'activate' in a.action else 'bell' }}"></i>
+                    </div>
+                    <div class="activity-info">
+                        <span class="activity-text">{{ a.action | replace('_', ' ') | title }}</span>
+                        <span class="activity-detail">{{ a.details[:50] if a.details else '' }}</span>
+                    </div>
+                    <div class="activity-time">{{ a.timestamp.strftime('%H:%M') if a.timestamp else '' }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="recent-users-card">
+            <div class="card-header-custom">
+                <h3><i class="fas fa-user-clock"></i> Recent Users</h3>
+            </div>
+            <div class="users-list">
+                {% for u in recent_users %}
+                <div class="user-item" style="animation-delay: {{ loop.index * 0.1 }}s">
+                    <div class="user-avatar">
+                        {{ u.first_name[0] if u.first_name else 'U' }}
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">{{ u.first_name or 'User' }}</span>
+                        <span class="user-username">@{{ u.username or 'N/A' }}</span>
+                    </div>
+                    <div class="user-plan-badge {{ u.plan }}">
+                        {{ u.plan | upper }}
+                    </div>
+                    {% if u.is_locked %}
+                    <span class="locked-badge"><i class="fas fa-lock"></i></span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="recent-signals-card">
+            <div class="card-header-custom">
+                <h3><i class="fas fa-crosshairs"></i> Recent Signals</h3>
+            </div>
+            <div class="signals-list">
+                {% for s in recent_signals %}
+                <div class="signal-item" style="animation-delay: {{ loop.index * 0.08 }}s">
+                    <div class="signal-direction {{ s.direction | lower }}">
+                        <i class="fas fa-arrow-{{ 'up' if s.direction == 'CALL' else 'down' }}"></i>
+                    </div>
+                    <div class="signal-info">
+                        <span class="signal-pair">{{ s.pair }}</span>
+                        <span class="signal-duration">{{ s.duration }}</span>
+                    </div>
+                    <div class="signal-result {{ s.result or 'pending' }}">
+                        {% if s.result == 'win' %}
+                        <i class="fas fa-check-circle"></i> WIN
+                        {% elif s.result == 'loss' %}
+                        <i class="fas fa-times-circle"></i> LOSS
+                        {% else %}
+                        <i class="fas fa-clock"></i> PENDING
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Signal Performance Chart
+const signalCtx = document.getElementById('signalChart').getContext('2d');
+new Chart(signalCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ chart_labels | tojson }},
+        datasets: [{
+            label: 'Wins',
+            data: {{ chart_wins | tojson }},
+            backgroundColor: 'rgba(0, 255, 136, 0.6)',
+            borderColor: 'rgba(0, 255, 136, 1)',
+            borderWidth: 2,
+            borderRadius: 8
+        }, {
+            label: 'Losses',
+            data: {{ chart_losses | tojson }},
+            backgroundColor: 'rgba(255, 68, 68, 0.6)',
+            borderColor: 'rgba(255, 68, 68, 1)',
+            borderWidth: 2,
+            borderRadius: 8
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#a0aec0', font: { family: 'Inter' } } }
+        },
+        scales: {
+            y: { ticks: { color: '#718096' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            x: { ticks: { color: '#718096' }, grid: { display: false } }
+        }
+    }
+});
+
+// Growth Chart
+const growthCtx = document.getElementById('growthChart').getContext('2d');
+new Chart(growthCtx, {
+    type: 'line',
+    data: {
+        labels: {{ growth_labels | tojson }},
+        datasets: [{
+            label: 'Total Users',
+            data: {{ growth_data | tojson }},
+            borderColor: '#6c5ce7',
+            backgroundColor: 'rgba(108, 92, 231, 0.1)',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 3,
+            pointBackgroundColor: '#6c5ce7',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 5
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#a0aec0', font: { family: 'Inter' } } }
+        },
+        scales: {
+            y: { ticks: { color: '#718096' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            x: { ticks: { color: '#718096' }, grid: { display: false } }
+        }
+    }
+});
+</script>
+{% endblock %}

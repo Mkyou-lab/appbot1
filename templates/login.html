@@ -1,0 +1,73 @@
+<!-- templates/login.html -->
+{% extends "base.html" %}
+{% block title %}MK Sniper - Login{% endblock %}
+{% block public_content %}
+<div class="login-page">
+    <div class="login-bg">
+        <div class="particle" style="--delay: 0s; --x: 20%; --y: 30%;"></div>
+        <div class="particle" style="--delay: 2s; --x: 70%; --y: 60%;"></div>
+        <div class="particle" style="--delay: 4s; --x: 40%; --y: 80%;"></div>
+        <div class="particle" style="--delay: 1s; --x: 85%; --y: 20%;"></div>
+        <div class="particle" style="--delay: 3s; --x: 15%; --y: 70%;"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <div class="logo-ring">
+                        <div class="logo-ring-inner">
+                            <i class="fas fa-crosshairs"></i>
+                        </div>
+                    </div>
+                </div>
+                <h1>MK SNIPER</h1>
+                <p class="login-subtitle">Engine Control Panel v47.0</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="login-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                {{ message }}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" class="login-form">
+                <div class="input-group-custom">
+                    <div class="input-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <input type="text" name="username" placeholder="Username" required autocomplete="off">
+                    <div class="input-line"></div>
+                </div>
+
+                <div class="input-group-custom">
+                    <div class="input-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <input type="password" name="password" placeholder="Password" required>
+                    <div class="input-line"></div>
+                </div>
+
+                <button type="submit" class="login-btn">
+                    <span>ACCESS DASHBOARD</span>
+                    <i class="fas fa-arrow-right"></i>
+                    <div class="btn-shine"></div>
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <div class="security-badge">
+                    <i class="fas fa-shield-halved"></i>
+                    <span>256-bit Encrypted</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -6,6 +6,7 @@ import logging
 
 from flask import Flask
 from flask_login import LoginManager
+from sqlalchemy.engine import make_url
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -16,16 +17,25 @@ log = logging.getLogger("MK_APP")
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mk-sniper-ultra-secret-key-2024')
 
-# Safe DB URL handling (prevents crashes from empty variables)
-raw_db = os.environ.get('DATABASE_URL', '').strip()
-if not raw_db or raw_db in ('""', "''", "None"):
-    db_url = 'sqlite:///mk_sniper.db'
-elif raw_db.startswith('postgres://'):
-    db_url = raw_db.replace('postgres://', 'postgresql://', 1)
-else:
-    db_url = raw_db
+# ==================== FAILSAFE DATABASE URI PARSER ====================
+def get_safe_db_uri():
+    raw_url = os.environ.get('DATABASE_URL', '').strip()
+    if raw_url.startswith('postgres://'):
+        raw_url = raw_url.replace('postgres://', 'postgresql://', 1)
+    
+    if raw_url:
+        try:
+            # Test if SQLAlchemy can parse the URL
+            make_url(raw_url)
+            return raw_url
+        except Exception as e:
+            log.warning(f"⚠️ Railway DATABASE_URL is invalid ('{raw_url}'): {e}. Falling back to SQLite.")
 
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+    # Absolute path to SQLite file
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    return f"sqlite:///{os.path.join(base_dir, 'mk_sniper.db')}"
+
+app.config['SQLALCHEMY_DATABASE_URI'] = get_safe_db_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
@@ -70,9 +80,8 @@ with app.app_context():
 
 os.makedirs('static/uploads', exist_ok=True)
 
-# ==================== ISOLATED TELEGRAM BOT THREAD ====================
+# ==================== TELEGRAM BOT THREAD ====================
 def run_telegram_bot():
-    """Runs Telegram Bot safely inside a daemon thread."""
     log.info("Starting Telegram Bot Thread...")
     try:
         loop = asyncio.new_event_loop()
@@ -82,7 +91,7 @@ def run_telegram_bot():
         from bot_engine import setup_bot_handlers, init_bot_db, BOT_TOKEN
 
         if not BOT_TOKEN or ":" not in BOT_TOKEN:
-            log.error("❌ Invalid or missing BOT_TOKEN! Bot thread stopped, but Web Dashboard remains active.")
+            log.warning("❌ Invalid or missing BOT_TOKEN! Dashboard active, bot thread idle.")
             return
 
         init_bot_db(app, db, BotUser, Signal, ActivityLog)
@@ -97,14 +106,13 @@ def run_telegram_bot():
                     allowed_updates=['message', 'callback_query'],
                     drop_pending_updates=True
                 )
-                log.info("🤖 Telegram Bot is active and listening for signals!")
+                log.info("🤖 Telegram Bot is active!")
                 await asyncio.Event().wait()
 
         loop.run_until_complete(run())
     except Exception as e:
         log.error(f"⚠️ Telegram Bot thread warning: {e}")
 
-# Launch Bot Thread safely
 try:
     bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
     bot_thread.start()

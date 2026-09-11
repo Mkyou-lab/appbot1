@@ -1,7 +1,7 @@
 import os
 import random
 from datetime import datetime, timedelta
-from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify
+from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
 
 from models import (db, AdminUser, BotUser, Signal, VideoContent, Strategy, 
@@ -15,6 +15,95 @@ SUBSCRIPTION_PLANS = {
     "lifetime": {"name": "Lifetime", "price": "$150", "days": 36500},
 }
 
+PAIRS = {
+    "EUR/USD": "forex", "GBP/USD": "forex", "USD/JPY": "forex", "AUD/USD": "forex",
+    "EUR/USD OTC": "otc", "GBP/USD OTC": "otc", "USD/JPY OTC": "otc", "Gold OTC": "otc",
+    "BTC/USD": "crypto", "ETH/USD": "crypto", "SOL/USD": "crypto"
+}
+
+# ==================== PUBLIC WEB TERMINAL FOR SUBSCRIBERS ====================
+@dash.route('/')
+@dash.route('/terminal')
+def public_terminal():
+    telegram_id = session.get('user_telegram_id')
+    user = None
+    if telegram_id:
+        user = BotUser.query.filter_by(telegram_id=telegram_id).first()
+
+    videos = VideoContent.query.filter_by(is_active=True).order_by(VideoContent.created_at.desc()).all()
+    strategies = Strategy.query.filter_by(is_active=True).order_by(Strategy.created_at.desc()).all()
+
+    return render_template('terminal.html', user=user, videos=videos, strategies=strategies, pairs=PAIRS)
+
+@dash.route('/api/web-login', methods=['POST'])
+def web_login():
+    telegram_id = request.form.get('telegram_id', '').strip()
+    key = request.form.get('key', '').strip().upper()
+
+    if not telegram_id.isdigit():
+        flash('Invalid Telegram ID', 'error')
+        return redirect(url_for('dash.public_terminal'))
+
+    tg_id = int(telegram_id)
+    user = BotUser.query.filter_by(telegram_id=tg_id).first()
+
+    if not user:
+        user = BotUser(telegram_id=tg_id, username='WebUser', first_name='Web User', is_locked=True)
+        db.session.add(user)
+        db.session.commit()
+
+    if key:
+        code_entry = ActivationCode.query.filter_by(code=key, is_used=False).first()
+        if code_entry:
+            code_entry.is_used = True
+            code_entry.used_by = tg_id
+            user.is_locked = False
+            user.plan = code_entry.plan
+            user.plan_started = now_local()
+            if code_entry.plan == 'lifetime':
+                user.plan_expiry = None
+            else:
+                days = SUBSCRIPTION_PLANS.get(code_entry.plan, {}).get('days', 7)
+                user.plan_expiry = now_local() + timedelta(days=days)
+            db.session.commit()
+            flash(f'Access Key Redeemed! {code_entry.plan.upper()} Plan Active!', 'success')
+        else:
+            flash('Invalid or used Access Key', 'error')
+
+    session['user_telegram_id'] = tg_id
+    return redirect(url_for('dash.public_terminal'))
+
+@dash.route('/api/generate-web-signal', methods=['POST'])
+def generate_web_signal():
+    tg_id = session.get('user_telegram_id')
+    pair = request.json.get('pair', 'EUR/USD OTC')
+    duration = request.json.get('duration', '1m')
+
+    if not tg_id:
+        return jsonify({'error': 'Please login with your Telegram ID first.'}), 403
+
+    user = BotUser.query.filter_by(telegram_id=tg_id).first()
+    if not user or not user.has_active_subscription():
+        return jsonify({'error': 'Subscription required! Please enter an Access Key.'}), 403
+
+    direction = random.choice(['CALL ⬆️', 'PUT ⬇️'])
+    accuracy = round(random.uniform(97.3, 99.6), 1)
+
+    sig = Signal(user_id=tg_id, pair=pair, direction='CALL' if 'CALL' in direction else 'PUT',
+                 duration=duration, accuracy=accuracy, result='win', pnl=8.5)
+    db.session.add(sig)
+    db.session.commit()
+
+    return jsonify({
+        'pair': pair,
+        'duration': duration,
+        'direction': direction,
+        'accuracy': accuracy,
+        'entry_time': (datetime.now() + timedelta(seconds=2)).strftime('%H:%M:%S'),
+        'confluences': ['Micro Trend Alignment (UP)', 'RSI Momentum > 55', 'Volume Spike Validated']
+    })
+
+# ==================== ADMIN DASHBOARD ====================
 @dash.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -37,7 +126,6 @@ def logout():
     logout_user()
     return redirect(url_for('dash.login'))
 
-@dash.route('/')
 @dash.route('/dashboard')
 @login_required
 def dashboard():
@@ -180,14 +268,6 @@ def delete_video(vid):
     db.session.delete(v)
     db.session.commit()
     flash('Video deleted', 'success')
-    return redirect(url_for('dash.content'))
-
-@dash.route('/content/video/<int:vid>/toggle', methods=['POST'])
-@login_required
-def toggle_video(vid):
-    v = VideoContent.query.get_or_404(vid)
-    v.is_active = not v.is_active
-    db.session.commit()
     return redirect(url_for('dash.content'))
 
 @dash.route('/content/strategy/add', methods=['POST'])

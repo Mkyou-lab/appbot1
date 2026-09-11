@@ -25,13 +25,11 @@ def get_safe_db_uri():
     
     if raw_url:
         try:
-            # Test if SQLAlchemy can parse the URL
             make_url(raw_url)
             return raw_url
         except Exception as e:
-            log.warning(f"⚠️ Railway DATABASE_URL is invalid ('{raw_url}'): {e}. Falling back to SQLite.")
+            log.warning(f"⚠️ DATABASE_URL invalid ({e}). Using SQLite.")
 
-    # Absolute path to SQLite file
     base_dir = os.path.abspath(os.path.dirname(__file__))
     return f"sqlite:///{os.path.join(base_dir, 'mk_sniper.db')}"
 
@@ -55,28 +53,29 @@ def load_user(user_id):
     except Exception:
         return None
 
-# Register Dashboard Blueprint
 app.register_blueprint(dash)
 
 @app.route('/health')
 def health():
     return {'status': 'ok', 'engine': 'MK SNIPER v47.0'}, 200
 
-# Create tables and default admin safely
+# ==================== GUARANTEED ADMIN LOGIN SYNC ====================
 with app.app_context():
     try:
         db.create_all()
-        admin = AdminUser.query.filter_by(username='admin').first()
+        target_user = os.environ.get('DASHBOARD_USER', 'admin').strip()
+        target_pass = os.environ.get('ADMIN_PASSWORD', 'admin123').strip()
+
+        admin = AdminUser.query.filter_by(username=target_user).first()
         if not admin:
-            admin_user = os.environ.get('DASHBOARD_USER', 'admin')
-            admin_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
-            admin = AdminUser(username=admin_user)
-            admin.set_password(admin_pass)
+            admin = AdminUser(username=target_user)
             db.session.add(admin)
-            db.session.commit()
-            log.info("Default admin user created successfully.")
+
+        admin.set_password(target_pass)
+        db.session.commit()
+        log.info(f"✅ Admin credentials synced! Username: '{target_user}'")
     except Exception as e:
-        log.error(f"Database initialization warning: {e}")
+        log.error(f"Error syncing admin account: {e}")
 
 os.makedirs('static/uploads', exist_ok=True)
 
@@ -91,7 +90,7 @@ def run_telegram_bot():
         from bot_engine import setup_bot_handlers, init_bot_db, BOT_TOKEN
 
         if not BOT_TOKEN or ":" not in BOT_TOKEN:
-            log.warning("❌ Invalid or missing BOT_TOKEN! Dashboard active, bot thread idle.")
+            log.warning("❌ Missing or invalid BOT_TOKEN! Dashboard active, bot thread idle.")
             return
 
         init_bot_db(app, db, BotUser, Signal, ActivityLog)
@@ -106,7 +105,7 @@ def run_telegram_bot():
                     allowed_updates=['message', 'callback_query'],
                     drop_pending_updates=True
                 )
-                log.info("🤖 Telegram Bot is active!")
+                log.info("🤖 Telegram Bot active!")
                 await asyncio.Event().wait()
 
         loop.run_until_complete(run())
